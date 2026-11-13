@@ -1,6 +1,5 @@
 import { dirName, isUnder, pathKey } from "../../files";
 
-/** The drag type this explorer uses for a row dragged inside its own tree. */
 export const INTERNAL_MOVE_TYPE = "application/x-ponpoko-editor-path";
 
 export interface MoveRow {
@@ -8,13 +7,6 @@ export interface MoveRow {
   isDir: boolean;
 }
 
-/**
- * The folder a drop lands in, or null when the move is refused. A drop on a
- * folder means "into that folder"; a drop on a file means "into the folder
- * that holds it". Moving a folder into itself or below itself, dragging the
- * workspace root, and dropping something back where it already is are all
- * refused rather than attempted and then reported as a backend error.
- */
 export function moveTargetFolder(
   dragPath: string,
   hovered: MoveRow | null,

@@ -1,137 +1,20 @@
-import type { EditorState } from "@codemirror/state";
+import { createDocumentOptions } from "./documents/options";
+import { restoreDocuments } from "./documents/restore";
 
-import type { EditorApi } from "./api";
-import type { FilePickRequest } from "./bridge";
 import { LARGE_FILE_BYTES, baseName, formatBytes, isAssetPath, isLargeFile, joinPath, pathKey } from "./files";
-import { languageFor, languageLabel, type LanguageId } from "./languages";
-import type { EditorSettings } from "./session";
-import { detectEol, detectIndentation, messageOf, normalizeEol, toDiskText } from "./documents/text";
+import { languageFor } from "./languages";
+import { detectEol, messageOf, normalizeEol, toDiskText } from "./documents/text";
 
 export { detectEol, detectIndentation, normalizeEol, toDiskText } from "./documents/text";
 import { createDiskWatcher } from "./documents/watch";
 import { createExternalOps } from "./documents/external";
-import type { Eol, Tab, TabModel, TabView } from "./tabs";
+import type { Tab } from "./tabs";
 
-export type UnsavedChoice = "save" | "discard" | "cancel";
-
-export type ConflictChoice = "overwrite" | "reload" | "keep" | "cancel";
-
-export type ConflictKind = "save" | "reload";
-
-export type ReconcileOutcome = "unchanged" | "reloaded" | "kept" | "missing" | "skipped";
-
-export interface ConfirmOptions {
-  title: string;
-  message: string;
-  confirmLabel: string;
-  cancelLabel?: string;
-  danger?: boolean;
-}
-
-export interface DocumentsDeps {
-  api: Pick<EditorApi, "read" | "write" | "stat">;
-  tabs: TabModel;
-  createState(
-    text: string,
-    language: LanguageId,
-    settings: EditorSettings,
-    view?: Partial<TabView>,
-    options?: { largeFile?: boolean },
-  ): EditorState;
-  capture(): TabView;
-  settings(): EditorSettings;
-  pickFile(request: FilePickRequest): Promise<string | null>;
-  askUnsaved(name: string): Promise<UnsavedChoice>;
-  askConflict?(kind: ConflictKind, name: string): Promise<ConflictChoice>;
-  confirm(options: ConfirmOptions): Promise<boolean>;
-  reconfigureLanguage(language: LanguageId): void;
-  preferredDirectory(): string | null;
-  onChange(): void;
-  onError(message: string): void;
-  onNote(message: string): void;
-  /** A file was written; the app may remember it among its recent files. */
-  onSaved?(path: string): void;
-}
-
-export interface Documents {
-  openPath(path: string, options?: OpenPathOptions): Promise<Tab | null>;
-  openViaDialog(): Promise<void>;
-  newUntitled(): Tab;
-  save(tabId: string): Promise<boolean>;
-  saveActive(): Promise<boolean>;
-  saveAs(tabId: string): Promise<boolean>;
-  saveAsActive(): Promise<boolean>;
-  saveAll(): Promise<number>;
-  revert(tabId: string): Promise<boolean>;
-  close(tabId: string): Promise<boolean>;
-  closeActive(): Promise<boolean>;
-  closeOthers(tabId: string): Promise<boolean>;
-  closeAll(): Promise<boolean>;
-  reopenClosed(): void;
-  activate(tabId: string): void;
-  next(): void;
-  previous(): void;
-  activateIndex(index: number): void;
-  setLanguage(tabId: string, language: LanguageId): void;
-  setEol(tabId: string, eol: Eol): void;
-  setIndentation(tabId: string, tabSize: number, insertSpaces: boolean): void;
-  restore(entries: readonly RestorableTab[], activePath: string | null): Promise<void>;
-  rememberActive(): void;
-  applyRenamed(from: string, to: string): number;
-  applyDeleted(path: string): { closed: number; kept: readonly string[] };
-  applyExternalWrite(paths: readonly string[]): Promise<{ reloaded: readonly string[]; kept: readonly string[] }>;
-  reconcile(tabId: string): Promise<ReconcileOutcome>;
-}
-
-export interface OpenPathOptions {
-  activate?: boolean;
-  view?: Partial<TabView>;
-  language?: LanguageId | null;
-  quiet?: boolean;
-}
-
-export interface RestorableTab {
-  path: string;
-  language: LanguageId | null;
-  eol: Eol;
-  topLine: number;
-  cursorLine: number;
-  cursorColumn: number;
-}
-
-/**
- * A name for a buffer that has never been written: Untitled-1, Untitled-2…
- * The name only has to be unique among the tabs that are open, because the
- * buffer has no path until Save As gives it one.
- */
-export function nextUntitledName(tabs: readonly Tab[]): string {
-  const used = new Set(tabs.map((tab) => tab.name));
-  for (let index = 1; index < 10_000; index += 1) {
-    const name = `Untitled-${index}`;
-    if (!used.has(name)) return name;
-  }
-  return `Untitled-${Date.now()}`;
-}
-
-export interface ResolvedIndentation {
-  tabSize: number;
-  insertSpaces: boolean;
-  detected: boolean;
-  settings: EditorSettings;
-}
-
-/** A file's own indentation wins; the editor's settings are the fallback. */
-export function resolveIndentation(text: string, settings: EditorSettings): ResolvedIndentation {
-  const guess = detectIndentation(text);
-  const tabSize = guess?.tabSize ?? settings.tabSize;
-  const insertSpaces = guess?.insertSpaces ?? settings.insertSpaces;
-  return {
-    tabSize,
-    insertSpaces,
-    detected: guess !== null,
-    settings: { ...settings, tabSize, insertSpaces },
-  };
-}
+export type * from "./documents/types";
+import type { DocumentsDeps, Documents, UnsavedChoice, ConflictKind, ConflictChoice, OpenPathOptions } from "./documents/types";
+import { nextUntitledName, resolveIndentation } from "./documents/settings";
+export { nextUntitledName, resolveIndentation } from "./documents/settings";
+export type { ResolvedIndentation } from "./documents/settings";
 
 export function createDocuments(deps: DocumentsDeps): Documents {
   const { tabs } = deps;
@@ -145,8 +28,6 @@ export function createDocuments(deps: DocumentsDeps): Documents {
 
   const rememberActive = (): void => {
     const active = tabs.active();
-    // An image tab is not in the editor, so a captured caret would describe
-    // the hidden text document instead of this tab.
     if (active && !active.asset) tabs.remember(active.id, deps.capture());
   };
 
@@ -165,8 +46,6 @@ export function createDocuments(deps: DocumentsDeps): Documents {
       return existing;
     }
 
-    // A PNG or a JPEG has no text to put in a buffer. It opens as a read-only
-    // tab that the preview pane draws, instead of failing as "not UTF-8".
     if (isAssetPath(path)) return openAsset(path, options);
 
     try {
@@ -304,9 +183,6 @@ export function createDocuments(deps: DocumentsDeps): Documents {
     writing.add(tab.id);
     try {
       const samePath = pathKey(target) === pathKey(tab.path);
-      // Save As (or a first save from an untitled buffer) must not leave two
-      // tabs claiming one file. A clean tab on the target is stale after the
-      // write, so it goes away; a dirty one is work this save would strand.
       const other = samePath ? null : tabs.findPath(target);
       if (other !== null && other.id !== tab.id && tabs.dirty(other)) {
         deps.onError(
@@ -520,8 +396,6 @@ export function createDocuments(deps: DocumentsDeps): Documents {
       asset: closed.asset,
     });
     deps.onChange();
-    // The file may have changed while the tab was closed. A reopened clean tab
-    // should follow the disk, exactly as it would if it had stayed open.
     void reconcile(tab.id);
   }
 
@@ -558,67 +432,13 @@ export function createDocuments(deps: DocumentsDeps): Documents {
     if (active !== null) void reconcile(active.id);
   }
 
-  function setLanguage(tabId: string, language: LanguageId): void {
-    const tab = tabs.list().find((candidate) => candidate.id === tabId);
-    if (!tab || tab.language === language) return;
-    tabs.setLanguage(tabId, language, true);
-    if (tabs.activeId() === tabId) deps.reconfigureLanguage(language);
-    deps.onNote(`${tab.name}: language is now ${languageLabel(language)}`);
-    deps.onChange();
-  }
-
-  function setEol(tabId: string, eol: Eol): void {
-    const tab = tabs.list().find((candidate) => candidate.id === tabId);
-    if (!tab) return;
-    tabs.setEol(tabId, eol);
-    deps.onNote(`${tab.name} will be saved with ${eol === "crlf" ? "CRLF" : "LF"} line endings`);
-    deps.onChange();
-  }
-
-  function setIndentation(tabId: string, tabSize: number, insertSpaces: boolean): void {
-    const tab = tabs.list().find((candidate) => candidate.id === tabId);
-    if (!tab) return;
-    tabs.setIndentation(tabId, tabSize, insertSpaces, false, true);
-    deps.onNote(
-      `${tab.name}: indenting with ${insertSpaces ? `${tabSize} spaces` : "tabs"} for this file`,
-    );
-    deps.onChange();
-  }
+  const { setLanguage, setEol, setIndentation } = createDocumentOptions(deps);
 
   const external = createExternalOps(deps, tabs);
   const applyRenamed = external.applyRenamed;
   const applyDeleted = external.applyDeleted;
   const applyExternalWrite = external.applyExternalWrite;
 
-  async function restore(entries: readonly RestorableTab[], activePath: string | null): Promise<void> {
-    const failed: string[] = [];
-    for (const entry of entries) {
-      const tab = await openPath(entry.path, {
-        activate: false,
-        quiet: true,
-        language: entry.language,
-        view: {
-          topLine: entry.topLine,
-          cursorLine: entry.cursorLine,
-          cursorColumn: entry.cursorColumn,
-        },
-      });
-      if (tab === null) failed.push(baseName(entry.path));
-    }
-    if (activePath !== null) {
-      const active = tabs.findPath(activePath);
-      if (active) tabs.activate(active.id);
-    } else if (tabs.activeId() === null) {
-      const first = tabs.list()[0];
-      if (first) tabs.activate(first.id);
-    }
-    if (failed.length > 0) {
-      deps.onError(
-        `Could not reopen ${failed.length === 1 ? "a file" : `${failed.length} files`} from the last session: ${failed.join(", ")}. It may have been moved or deleted.`,
-      );
-    }
-    deps.onChange();
-  }
 
   return {
     openPath,
@@ -651,7 +471,7 @@ export function createDocuments(deps: DocumentsDeps): Documents {
     setLanguage,
     setEol,
     setIndentation,
-    restore,
+    restore: (entries, activePath) => restoreDocuments(deps, openPath, entries, activePath),
     rememberActive,
     applyRenamed,
     applyDeleted,

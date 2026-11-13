@@ -14,7 +14,6 @@ describe("a binary image opens as a read-only tab, not as broken text", () => {
       expect(isAssetPath(`/tmp/picture.${extension}`)).toBe(true);
     }
     expect(isAssetPath("/tmp/picture.PNG")).toBe(true);
-    // SVG is XML: it opens in the editor and is also previewable.
     expect(isAssetPath("/tmp/icon.svg")).toBe(false);
     expect(isAssetPath("/tmp/notes.md")).toBe(false);
     expect(isAssetPath("/tmp/no-extension")).toBe(false);

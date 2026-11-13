@@ -133,11 +133,6 @@ export function createOps(ports: OpsPorts) {
     }
   }
 
-  /**
-   * Move a row (or a file already in this tree) into another folder. The
-   * source is renamed, never copied, and a taken name becomes the next free
-   * one exactly as a paste does: nothing is ever overwritten.
-   */
   async function moveOp(from: string, folder: string): Promise<void> {
     const root = ports.root();
     if (root === null) {

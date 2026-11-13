@@ -219,10 +219,6 @@ export function registerCommands(host: CommandHost): void {
     else settingsSheet.open(host.settings());
   });
 
-  /**
-   * The editor commands act on a text buffer. An image tab has none, and a
-   * command run from the palette must not edit the hidden document behind it.
-   */
   const editorGuard = (): boolean => {
     const active = tabs.active();
     if (active === null) {
@@ -248,7 +244,6 @@ export function registerCommands(host: CommandHost): void {
   const hasSelection = (view: EditorView): boolean =>
     view.state.selection.ranges.some((range) => !range.empty);
 
-  /** The selected text, or the current line when nothing is selected. */
   const selectedText = (view: EditorView): string => {
     const state = view.state;
     if (!hasSelection(view)) {
@@ -273,14 +268,11 @@ export function registerCommands(host: CommandHost): void {
   register("editor.copy", "Copy", "Copy the selection, or the current line", async () => {
     if (!editorGuard()) return;
     await host.copyText(selectedText(editor.view()));
-    // The clipboard fallback uses a temporary textarea; keep the editor's
-    // caret where it was once that is gone.
     editor.focus();
   });
   register("editor.cut", "Cut", "Cut the selection, or the current line", async () => {
     if (!editorGuard()) return;
     const view = editor.view();
-    // Never remove text that did not reach the clipboard first.
     if (!(await host.copyText(selectedText(view)))) return;
     if (hasSelection(view)) {
       view.dispatch({ ...view.state.replaceSelection(""), userEvent: "delete.cut" });

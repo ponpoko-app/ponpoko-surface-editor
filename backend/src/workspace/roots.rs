@@ -86,8 +86,6 @@ pub(crate) fn walk_files(root: &Path, include_hidden: bool) -> (Vec<FileMeta>, b
 
 pub fn read_searchable(path: &Path) -> Option<String> {
     let metadata = std::fs::metadata(path).ok()?;
-    // A pipe or device can block a read forever and take the whole backend
-    // with it; search only regular files.
     if !metadata.is_file() || metadata.len() > MAX_SEARCH_FILE_BYTES {
         return None;
     }

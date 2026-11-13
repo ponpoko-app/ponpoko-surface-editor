@@ -1,21 +1,12 @@
 import { createApi } from "../../api";
-import type { SurfaceLink } from "../../bridge";
 import { createDocuments } from "../../documents";
 import { mountEditor, type EditorUpdate, type SurfaceEditor } from "../../editor";
 import { baseName, dirName, shortenPath } from "../../files";
-import { detectPlatform, editorKeymap, installAppKeymap, type KeymapHost, type Platform } from "../../keymap";
+import { detectPlatform, editorKeymap, installAppKeymap, type KeymapHost } from "../../keymap";
 import { createNavigator } from "../../navigation";
 import {
-  browserStorage,
-  debounce,
-  persistedTabs,
-  readSession,
-  readSettings,
-  rememberRecent,
-  writeSession,
-  writeSettings,
-  type EditorSettings,
-  type StorageLike,
+  browserStorage, debounce, persistedTabs, readSession, readSettings,
+  rememberRecent, writeSession, writeSettings, type EditorSettings,
 } from "../../session";
 import { createTabModel } from "../../tabs";
 import { createChrome } from "./chrome";
@@ -24,7 +15,7 @@ import { registerCommands } from "./commands";
 import { createCommandRegistry, type CommandRegistry } from "../commands";
 import { createDialogHost } from "../dialog";
 import { createExplorer } from "../explorer";
-import { installLifecycle, restoreSession, wireLink } from "./lifecycle";
+import { installLifecycle, startWorkspace, watchWorkspaceFocus } from "./lifecycle";
 import { showEditorMenu, showTabMenu, type MenuHost } from "./menus";
 import { createOpener } from "./opening";
 import { createOutline } from "../outline";
@@ -40,18 +31,8 @@ import { createStatusBar } from "../statusbar";
 import { createTabStrip } from "../tabs";
 import type { AppState } from "./state";
 
-export interface EditorAppOptions {
-  root: HTMLElement;
-  link: SurfaceLink;
-  storage?: StorageLike | null;
-  platform?: Platform;
-}
-
-export interface EditorApp {
-  destroy(): void;
-  tabs(): ReturnType<typeof createTabModel>;
-  render(): void;
-}
+import type { EditorAppOptions, EditorApp } from "./types";
+export type * from "./types";
 
 export function createEditorApp(options: EditorAppOptions): EditorApp {
   const platform = options.platform ?? detectPlatform();
@@ -73,7 +54,6 @@ export function createEditorApp(options: EditorAppOptions): EditorApp {
 
   const api = createApi(options.link);
   const tabs = createTabModel();
-  // Assigned below; the preview's callbacks only reach it after the app is up.
   let renderer: Renderer;
 
   const chrome = createChrome(options.root, platform);
@@ -127,8 +107,6 @@ export function createEditorApp(options: EditorAppOptions): EditorApp {
     {
       onUpdate(update: EditorUpdate) {
         const active = tabs.active();
-        // An image tab has no editor; a hidden text editor must not write its
-        // state into the image tab when settings are reconfigured.
         if (!active || active.asset) return;
         tabs.update(active.id, update.state);
         state.cursor = update.cursor;
@@ -487,52 +465,19 @@ export function createEditorApp(options: EditorAppOptions): EditorApp {
     },
   });
 
-  const cleanupLifecycle = installLifecycle({
-    state,
-    tabs,
-    editor,
-    persistNow,
-    cancelPersist: () => schedulePersist.cancel(),
-    render: () => renderer.all(),
-    showError,
-  });
+  const lifecycle = { state, tabs, editor, persistNow,
+    cancelPersist: () => schedulePersist.cancel(), render: () => renderer.all(), showError };
+  const cleanupLifecycle = installLifecycle(lifecycle);
 
-  // Coming back to the window is another moment to ask the disk: a file may
-  // have been changed by a tool while the human was away in another program.
-  const onWindowFocus = (): void => {
-    const active = tabs.active();
-    if (active !== null && active.path.length > 0) void state.documents?.reconcile(active.id);
-    // A tool may have created, renamed or deleted files while the human was
-    // in another program; the tree should say what is on disk now.
-    void explorer.refresh();
-  };
-  window.addEventListener("focus", onWindowFocus);
-
-  wireLink(options.link, showError);
-
-  if (state.workspace !== null) explorer.setRoot(state.workspace);
-
-  renderer.all();
-
-  void restoreSession(
-    {
-      state,
-      tabs,
-      editor,
-      persistNow,
-      cancelPersist: () => schedulePersist.cancel(),
-      render: () => renderer.all(),
-      showError,
-    },
-    persisted,
-  );
+  const cleanupFocus = watchWorkspaceFocus(state, tabs, () => explorer.refresh());
+  startWorkspace(lifecycle, options.link, explorer, persisted);
 
   return {
     tabs: () => tabs,
     render: () => renderer.all(),
     destroy() {
       removeKeymap();
-      window.removeEventListener("focus", onWindowFocus);
+      cleanupFocus();
       cleanupLifecycle();
       settingsSheet.element.remove();
       schedulePersist.cancel();

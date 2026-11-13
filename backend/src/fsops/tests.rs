@@ -384,8 +384,6 @@ fn a_read_only_file_is_refused_instead_of_being_replaced_by_a_save() {
 fn a_pipe_is_not_read_as_text() {
     let dir = temp_dir("fifo");
     let pipe = dir.join("pipe");
-    // mkfifo exists on macOS and Linux; if it is missing, this test has
-    // nothing to prove and returns instead of failing the suite.
     let made = std::process::Command::new("mkfifo").arg(&pipe).status();
     if !matches!(made, Ok(status) if status.success()) {
         return;
@@ -435,8 +433,6 @@ fn a_folder_holding_a_symlink_is_copied_through_it() {
 
     let clone = dir.join("clone");
     let answer = copy(&json!({ "from": source, "to": clone })).expect("copy through links");
-    // The real file, the copy through the linked folder, and the copy through
-    // the linked file are three separate files in the clone.
     assert_eq!(answer["files"], 3);
     assert_eq!(
         std::fs::read_to_string(clone.join("linked").join("inside.txt")).expect("through the folder link"),

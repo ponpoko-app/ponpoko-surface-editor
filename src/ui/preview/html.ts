@@ -103,7 +103,6 @@ export interface PreviewTab {
   path: string;
   text: string;
   dirty: boolean;
-  /** Changes when the file on disk changes, so an image is read again. */
   modifiedMs?: number | null;
 }
 
@@ -119,9 +118,7 @@ export interface PreviewDeps {
 export interface Preview {
   readonly element: HTMLElement;
   update(tab: PreviewTab | null): void;
-  /** Show an image tab's file in the pane, as the main view. */
   showAsset(tab: PreviewTab): void;
-  /** Leave the image view; the preview returns to what it was before. */
   endAsset(): void;
   schedule(): void;
   toggle(): void;

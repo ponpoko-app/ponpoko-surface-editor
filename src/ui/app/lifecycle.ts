@@ -1,3 +1,4 @@
+import type { Explorer } from "../explorer";
 import type { SurfaceLink } from "../../bridge";
 import type { SurfaceEditor } from "../../editor";
 import { applyPaletteTokens } from "../../palette";
@@ -66,4 +67,21 @@ export function wireLink(link: SurfaceLink, showError: (message: string) => void
   link.onPalette((tokens) => {
     applyPaletteTokens(document.documentElement, tokens);
   });
+}
+
+export function watchWorkspaceFocus(state: AppState, tabs: TabModel, refresh: () => Promise<void>): () => void {
+  const onWindowFocus = (): void => {
+    const active = tabs.active();
+    if (active !== null && active.path.length > 0) void state.documents?.reconcile(active.id);
+    void refresh();
+  };
+  window.addEventListener("focus", onWindowFocus);
+  return () => window.removeEventListener("focus", onWindowFocus);
+}
+
+export function startWorkspace(host: LifecycleHost, link: SurfaceLink, explorer: Explorer, persisted: PersistedSession): void {
+  wireLink(link, host.showError);
+  if (host.state.workspace !== null) explorer.setRoot(host.state.workspace);
+  host.render();
+  void restoreSession(host, persisted);
 }

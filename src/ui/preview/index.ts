@@ -98,7 +98,6 @@ export function createPreview(deps: PreviewDeps): Preview {
     title.title = tab.path;
     badge.textContent = tab.dirty ? "unsaved buffer" : "";
     badge.hidden = !tab.dirty;
-    // An image tab is the main view; there is no side preview to close.
     closeButton.hidden = assetMode;
     showImageControls(kind === "image");
   }
@@ -174,8 +173,6 @@ export function createPreview(deps: PreviewDeps): Preview {
     }
     const token = (sequence += 1);
     updateChrome(kind);
-    // Text is compared as a buffer; an image has no buffer, so its timestamp
-    // on disk is what says whether the bytes need reading again.
     const sameDocument =
       renderedText === next.text &&
       imagePath === next.path &&
@@ -262,7 +259,6 @@ export function createPreview(deps: PreviewDeps): Preview {
         return;
       }
       if (assetMode) {
-        // The renderer drives the image view through showAsset.
         return;
       }
       if (!wanted) {

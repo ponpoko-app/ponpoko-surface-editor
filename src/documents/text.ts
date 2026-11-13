@@ -1,7 +1,6 @@
 import type { Eol } from "../tabs";
 
 export interface IndentationGuess {
-  /** null when the file indents with tabs, whose display width is a setting. */
   tabSize: number | null;
   insertSpaces: boolean;
 }
@@ -17,12 +16,6 @@ function greatestCommonDivisor(a: number, b: number): number {
   return left;
 }
 
-/**
- * Read the indentation a file already uses, so typing in it does not fight
- * the file. It is a heuristic and says so: a file with fewer than three
- * indented lines, or with both tabs and spaces in comparable numbers, is
- * left to the editor's settings instead of being guessed at.
- */
 export function detectIndentation(text: string): IndentationGuess | null {
   let tabLines = 0;
   let spaceLines = 0;
@@ -54,8 +47,6 @@ export function detectIndentation(text: string): IndentationGuess | null {
   const counts = new Map<number, number>();
   for (const width of spaceWidths) counts.set(width, (counts.get(width) ?? 0) + 1);
 
-  // The indentation step is the smallest width that is used often enough to
-  // be structural. This ignores one-off alignment under a continued line.
   const minimum = Math.max(2, Math.floor(spaceLines * 0.15));
   const viable = [...counts.entries()]
     .filter(([width, count]) => width >= 2 && width <= 8 && count >= minimum)
@@ -65,8 +56,6 @@ export function detectIndentation(text: string): IndentationGuess | null {
     return { tabSize: viable[0][0], insertSpaces: true };
   }
 
-  // No single width is common enough; the greatest common divisor of the
-  // indents still describes a consistent step (2- and 4-space code alike).
   let divisor = 0;
   for (const width of spaceWidths) divisor = greatestCommonDivisor(divisor, width);
   if (divisor >= 2 && divisor <= 8) return { tabSize: divisor, insertSpaces: true };

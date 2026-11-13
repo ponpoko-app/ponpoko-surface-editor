@@ -108,8 +108,6 @@ export function mountEditor(
   const settingsKey = (value: EditorSettings): string =>
     `${value.tabSize}:${value.insertSpaces}:${value.wordWrap}:${value.fontSize}`;
 
-  // A file whose indentation was read from its text, or chosen for it by the
-  // human, keeps it; the global settings only decide the rest.
   const ownsIndentation = (tab: Tab): boolean => tab.indentationDetected || tab.indentationPinned;
   const indentationFor = (base: EditorSettings, tab: Tab): EditorSettings =>
     ownsIndentation(tab)
@@ -123,8 +121,6 @@ export function mountEditor(
     foldGutter({ openText: "▾", closedText: "▸" }),
     drawSelection(),
     dropCursor(),
-    // Alt-click adds a cursor without taking the platform modifier that
-    // already means Go to Definition; Alt-Shift-drag selects a rectangle.
     EditorView.clickAddsSelectionRange.of(
       (event: MouseEvent) => event.altKey && !event.shiftKey,
     ),

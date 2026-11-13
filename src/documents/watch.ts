@@ -46,16 +46,12 @@ export function createDiskWatcher(
     try {
       const read = await ports.api.read(tab.path);
       const text = normalizeEol(read.content);
-      // The file may have been rewritten with the other line ending; follow
-      // the bytes on disk rather than the line ending the tab remembered.
       const eol = detectEol(read.content);
       ports.tabs.setEol(tab.id, eol);
       const settings = ports.settings();
       let tabSize = settings.tabSize;
       let insertSpaces = settings.insertSpaces;
       if (tab.indentationPinned) {
-        // The human chose this file's indentation; re-reading the file must
-        // not take that choice away.
         tabSize = tab.tabSize;
         insertSpaces = tab.insertSpaces;
       } else {
@@ -104,9 +100,6 @@ export function createDiskWatcher(
         return "missing";
       }
       if (current.asset) {
-        // An image tab has no buffer to lose, so following the disk is the
-        // only sensible answer. The new size and timestamp make the preview
-        // read the bytes again.
         ports.tabs.markSaved(current.id, { bytes: disk.bytes, modifiedMs: disk.modifiedMs });
         watch.acknowledged.delete(current.id);
         ports.onNote(`${current.name} was reloaded: it changed on disk`);

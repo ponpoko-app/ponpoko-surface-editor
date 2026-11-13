@@ -177,7 +177,6 @@ export function renderTitle(chrome: Chrome, model: TitleModel, platform: Platfor
     ? `${tab.name} — ${tab.path.length > 0 ? tab.path : "not saved yet"}`
     : (workspace ?? "No folder open");
   const previewButton = chrome.buttons.preview;
-  // An image tab is already the preview; there is nothing to toggle beside it.
   const previewable = tab?.asset !== true && canPreview(tab?.path ?? null);
   previewButton.hidden = !previewable;
   previewButton.disabled = !previewable;

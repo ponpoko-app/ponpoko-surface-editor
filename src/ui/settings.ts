@@ -61,8 +61,6 @@ export function createSettingsSheet(handlers: SettingsHandlers): SettingsSheet {
     option.textContent = `${size} columns`;
     tabSize.append(option);
   }
-  // A session written by another machine may hold a width that is not one of
-  // the three choices; show it rather than leaving the select blank.
   const showTabSize = (size: number): void => {
     const value = String(size);
     if (![...tabSize.options].some((option) => option.value === value)) {

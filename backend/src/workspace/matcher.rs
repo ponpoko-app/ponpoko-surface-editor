@@ -66,8 +66,6 @@ impl Matcher {
     }
 
     pub fn replace_all(&self, text: &str, replacement: &str) -> (String, usize) {
-        // A replacement typed with plain line breaks must not turn a CRLF file
-        // into a mixed-ending one.
         let replacement = if uses_crlf(text) {
             replacement.replace("\r\n", "\n").replace('\n', "\r\n")
         } else {
@@ -99,8 +97,6 @@ impl Matcher {
     }
 }
 
-/// The file's own line ending, decided the same way the page decides it: the
-/// majority wins when a file is, unusually, mixed.
 fn uses_crlf(text: &str) -> bool {
     let crlf = text.matches("\r\n").count();
     if crlf == 0 {

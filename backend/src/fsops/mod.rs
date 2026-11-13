@@ -6,9 +6,6 @@ use base64::Engine as _;
 use serde_json::{json, Value};
 use crate::{internal, invalid_params, RpcError};
 
-/// Names of the temporary files this process writes before renaming them into
-/// place. The counter keeps two writes in one process apart even when they
-/// target the same folder.
 static TEMP_COUNTER: AtomicU64 = AtomicU64::new(0);
 
 fn temp_sibling(path: &Path, tag: &str) -> PathBuf {
@@ -27,10 +24,6 @@ fn temp_sibling(path: &Path, tag: &str) -> PathBuf {
     ))
 }
 
-/// A save into a symlink must edit the file the link names. Renaming a
-/// temporary file over the link itself would replace the link with a regular
-/// file and leave the real file untouched, which looks like a save that did
-/// nothing.
 fn write_target(path: &Path) -> PathBuf {
     let mut current = path.to_path_buf();
     for _ in 0..16 {
@@ -44,8 +37,6 @@ fn write_target(path: &Path) -> PathBuf {
         if let Ok(real) = std::fs::canonicalize(&current) {
             return real;
         }
-        // The link is dangling. Follow it by hand so saving creates the file
-        // it names and leaves the link in place.
         match std::fs::read_link(&current) {
             Ok(link) if link.is_absolute() => current = link,
             Ok(link) => {
@@ -211,8 +202,6 @@ pub(crate) fn write_atomic(path: &Path, bytes: &[u8]) -> std::io::Result<()> {
     let target = write_target(path);
     let existing = std::fs::metadata(&target).ok();
     if let Some(metadata) = &existing {
-        // An atomic save renames over the file, which would bypass a read-only
-        // permission. Refuse instead of quietly replacing a protected file.
         if metadata.permissions().readonly() {
             return Err(io::Error::new(
                 io::ErrorKind::PermissionDenied,

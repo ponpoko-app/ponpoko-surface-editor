@@ -28,7 +28,6 @@ export interface Tab {
   readonly modifiedMs: number | null;
   readonly bytes: number;
   readonly view: TabView;
-  /** An image or other non-text asset: shown, never edited or written. */
   readonly asset: boolean;
 }
 
@@ -155,7 +154,6 @@ export function createTabModel(options: TabModelOptions = {}): TabModel {
     activeId: () => activeId,
 
     findPath(path) {
-      // An untitled buffer has no path, and two of them are never the same file.
       if (path.length === 0) return null;
       return tabs.find((tab) => samePath(tab.path, path)) ?? null;
     },

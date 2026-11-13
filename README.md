@@ -255,13 +255,6 @@ bun install                 # once
 bun run build               # type-check, bundle, compile both programs, verify
 ```
 
-From the app's side the same task runs through `bun run build:surface-editor`
-(or `node scripts/build-surfaces.mjs surfaces/editor`), which only delegates.
-
-`app/bunfig.toml` installs with the isolated linker, so as a workspace outside
-`app/` these dependencies land in this folder's `node_modules/` rather than being
-hoisted — that is what lets its tsconfig and its bundle resolve CodeMirror at all.
-
 The installable bundle lands in `dist/`:
 
 ```
@@ -272,7 +265,7 @@ dist/bin/editor-backend      the surface's own process (compiled by cargo)
 dist/bin/editor-cli          the surface's own command line, same method table
 ```
 
-`bun run build` at the app root builds the window **and** this bundle; this
+`bun run build` in this repository builds this bundle; this
 folder's `scripts/build.mjs` compiles both programs the manifest declares and then
 checks the output against the same rules the install path uses — an uninstallable
 bundle fails the build.
@@ -283,14 +276,12 @@ entry to be in the folder you pick.
 
 ## Install it
 
-In Ponpoko: **Surfaces → Install a surface…** and pick `surfaces/editor/dist`.
+In Ponpoko: **Surfaces → Install a surface…** and pick `dist`.
 
 Headlessly, through the same install path:
 
 ```sh
-PONPOKO_HOME=$(mktemp -d) \
-  cargo run --manifest-path app/src-tauri/Cargo.toml --bin ponpoko -- \
-  surface-install --bundle surfaces/editor/dist
+ponpoko surface-install --bundle dist
 ```
 
 The registry row goes into the central db and the files into
@@ -304,10 +295,9 @@ Remove it from the Surfaces window, or with `ponpoko surface-remove editor`.
   Finder, a screenshot as PNG bytes, or text) and `backend.call` (this surface's
   own process). A drop from Finder never reaches this page directly — the host
   measures where the pointer landed and posts `ponpoko.host.drop` with the paths.
-  The surface asks through these doors and no others: an unknown permission fails
-  the whole manifest at install time.
+  Host checks every live frame scope and routes only methods declared by the bundle.
 - The page reaches Ponpoko only through `postMessage` (`src/bridge.ts` speaks the
-  protocol the host's `app/src/lib/surfaceBridge.ts` defines). There is no Tauri
+  public SDK protocol). There is no Tauri
   IPC in the frame, so Ponpoko's own commands are not reachable from here at all.
 - File I/O and the index live in `backend/src/lib.rs` as one method table, with
   two programs in front of it: `bin/editor-backend`, the JSON-RPC process over
@@ -380,3 +370,11 @@ combining marks, and that problem is not addressed in this round.
 Ponpoko reserves Cmd/Ctrl+1–9 for Favorite surfaces and Cmd/Ctrl+K for the surface picker.
 Use Cmd/Ctrl+Alt+1–9 to select an Editor document tab. Ctrl+Tab and Ctrl+Shift+Tab still select
 the next and previous document. The command palette lists the current shortcut for each tab.
+
+## Public Host contract
+
+External agents start with [the Surface SDK skill](https://github.com/zurge-co/ponpoko-surface-sdk/blob/main/SKILL.md).
+The versioned broker, types and compatibility checks are public; a private Host
+checkout is not required. This surface has no AI requirement and does not need
+to vendor AI assets merely to use its backend. The Host remains the authority
+for installation and frame scope. This repository has no automatic CI workflow.

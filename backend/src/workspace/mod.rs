@@ -234,8 +234,6 @@ impl Workspace {
             .get("max_results")
             .and_then(Value::as_u64)
             .map(|value| value as usize)
-            // The documented default is the limit itself; a caller may ask
-            // for fewer, never for more.
             .unwrap_or(MAX_SEARCH_RESULTS)
             .clamp(1, MAX_SEARCH_RESULTS);
 

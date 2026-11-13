@@ -254,8 +254,6 @@ export function persistedTabs(tabs: readonly Tab[], activeId: string | null): {
   activePath: string | null;
 } {
   return {
-    // An untitled buffer has no file to reopen and its text is not persisted,
-    // so it is left out instead of being restored as an empty tab.
     tabs: tabs
       .filter((tab) => tab.path.length > 0)
       .map((tab) => ({

@@ -92,8 +92,6 @@ export function createRenderer(host: RendererHost): Renderer {
     );
     const active = tabs.active();
     const asset = active !== null && active.asset;
-    // An image has no buffer to edit. The preview pane takes the whole main
-    // area instead of showing an empty editor.
     chrome.main.classList.toggle("asset-mode", asset);
     const wasHidden = chrome.editorHost.hidden;
     if (active !== null && !asset) {

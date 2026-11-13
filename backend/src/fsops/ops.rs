@@ -177,8 +177,6 @@ fn copy_tree(
             ),
         ));
     }
-    // Follow links: a symlinked folder is copied as the folder it names, so a
-    // paste of a folder holding links does not stop at the first one.
     let metadata = std::fs::metadata(from)?;
     if metadata.is_dir() {
         std::fs::create_dir(to)?;
@@ -216,8 +214,6 @@ pub(crate) fn copy(params: &Value) -> Result<Value, RpcError> {
         .ok_or_else(|| invalid_params("fs.copy needs a non-empty 'to' path"))?;
     let to = PathBuf::from(to);
 
-    // Copying a pipe or device can block forever; only files and folders are
-    // things a paste into a folder can mean.
     let followed = std::fs::metadata(&from)
         .map_err(|e| internal(format!("{} could not be copied: {e}", from.display())))?;
     if !followed.is_file() && !followed.is_dir() {
@@ -226,13 +222,9 @@ pub(crate) fn copy(params: &Value) -> Result<Value, RpcError> {
             from.display()
         )));
     }
-    // A link to a folder is copied as the folder it names, so the answer says
-    // "folder" for it too.
     let is_dir = followed.is_dir();
     if is_dir {
         let lexical_inside = to.starts_with(&from);
-        // A folder reached through a symlink is copied as its target, so the
-        // comparison has to be made against the real folder too.
         let real_inside = match (
             std::fs::canonicalize(&from),
             to.parent().and_then(|parent| std::fs::canonicalize(parent).ok()),
@@ -340,10 +332,6 @@ pub(crate) fn rename(params: &Value) -> Result<Value, RpcError> {
             to.display()
         )));
     }
-    // On a case-insensitive filesystem `to.exists()` is true for a rename that
-    // only changes the case (`a.txt` -> `A.txt`). That is the same directory
-    // entry, not another file, and must be allowed. A symlink is never
-    // treated as the file it points at: renaming the link has to move the link.
     let same_entry = !from_meta.file_type().is_symlink()
         && to.exists()
         && match (std::fs::canonicalize(&from), std::fs::canonicalize(&to)) {
@@ -369,9 +357,6 @@ pub(crate) fn rename(params: &Value) -> Result<Value, RpcError> {
 
     let is_dir = from_meta.is_dir();
     let moved = if same_entry {
-        // Moving aside first keeps a case-only rename working on systems
-        // (Windows) whose rename refuses a destination that differs only in
-        // case. If the second step fails the first is undone.
         let temporary = temp_sibling(&from, "rename");
         match std::fs::rename(&from, &temporary) {
             Ok(()) => match std::fs::rename(&temporary, &to) {
