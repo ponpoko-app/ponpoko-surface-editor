@@ -373,7 +373,7 @@ the next and previous document. The command palette lists the current shortcut f
 
 ## Public Host contract
 
-External agents start with [the Surface SDK skill](https://github.com/zurge-co/ponpoko-surface-sdk/blob/main/SKILL.md).
+External agents start with [the Surface SDK skill](https://github.com/ponpoko-app/surface-sdk/blob/main/SKILL.md).
 The versioned broker, types and compatibility checks are public; a private Host
 checkout is not required. This surface has no AI requirement and does not need
 to vendor AI assets merely to use its backend. The Host remains the authority
